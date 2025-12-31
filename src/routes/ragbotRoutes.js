@@ -1,5 +1,6 @@
 import express from 'express';
 import prisma from '../prismaClient.js';
+import { queryCountry } from '../services/ragbotService.js';
 
 const router = express.Router();
 
@@ -15,9 +16,8 @@ router.get('/', async (req, res) => {
 
 // Create new query
 router.post('/', async (req, res) => {
-    const { question } = req.body
-    // Call chatgpt API to get answer
-    // const answer = await ()
+    const { question, country } = req.body
+    const answer = await queryCountry(question, country)
     const query = await prisma.query.create({
         data: {
             question,
