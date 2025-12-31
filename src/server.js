@@ -18,7 +18,7 @@ app.use(express.static(path.join(__dirname, '../public')))
 
 // Serve HTML file (change it so that frontend is in a seperate project)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'))
+    res.sendFile(path.join(__dirname, '../public', 'index.html'))
 })
 
 // Routes

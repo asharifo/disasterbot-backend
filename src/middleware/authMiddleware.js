@@ -1,7 +1,14 @@
 import jwt from 'jsonwebtoken';
 
 function authMiddleware(req, res, next) {
-    const token = req.headers['authorization']
+    const authHeader = req.headers.authorization
+    if (!authHeader) {
+        return res.sendStatus(401);
+    }
+
+    const [scheme, tokenValue] = authHeader.split(' ')
+    const token = scheme?.toLowerCase() === 'bearer' ? tokenValue : authHeader
+
     if (!token) {
         return res.sendStatus(401);
     }
@@ -11,6 +18,7 @@ function authMiddleware(req, res, next) {
             return res.sendStatus(401);
         }
         req.user = decoded;
+        req.userId = decoded.id;
         next();
     })
 }

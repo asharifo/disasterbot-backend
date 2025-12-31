@@ -8,9 +8,16 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
     const { username, password } = req.body
 
-    const hashedPassword = bcrypt.hashSync(password, 10)
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required.' })
+    }
+
+    if (!process.env.JWT_SECRET) {
+        return res.sendStatus(500)
+    }
 
     try {
+        const hashedPassword = await bcrypt.hash(password, 10)
         const user = await prisma.user.create({
             data: {
                 username,
@@ -29,6 +36,14 @@ router.post('/register', async (req, res) => {
 
 router.post('/login', async (req, res) => {
     const { username, password } = req.body
+
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Username and password are required.' })
+    }
+
+    if (!process.env.JWT_SECRET) {
+        return res.sendStatus(500)
+    }
     
     try {
         const user = await prisma.user.findUnique({
