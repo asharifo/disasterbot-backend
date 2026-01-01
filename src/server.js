@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 
 // Routes
 app.use('/auth', authRoutes)
-app.use('/ragbot', authMiddleware, ragbotRoutes)
+app.use('/ragbot', ragbotRoutes)
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
