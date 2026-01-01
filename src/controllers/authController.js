@@ -26,7 +26,7 @@ const login = async (req, res) => {
       return res.sendStatus(401);
     }
 
-    const passwordMatch = bcrypt.compareSync(password, user.password);
+    const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
       return res.sendStatus(401);
@@ -105,7 +105,6 @@ const refresh = (req, res) => {
   if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
     return res.sendStatus(500);
   }
-
   const cookies = req.cookies;
 
   if (!cookies?.jwt) return res.status(401).json({ message: "Unauthorized" });
