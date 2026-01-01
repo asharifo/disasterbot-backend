@@ -1,114 +1,148 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import prisma from '../prismaClient.js';
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import prisma from "../prismaClient.js";
 
 const login = async (req, res) => {
-    const { username, password } = req.body
+  const { username, password } = req.body;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required.' })
+  if (!username || !password) {
+    return res
+      .status(400)
+      .json({ error: "Username and password are required." });
+  }
+
+  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
+    return res.sendStatus(500);
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        username: username,
+      },
+    });
+
+    if (!user) {
+      return res.sendStatus(401);
     }
 
-    if (!process.env.JWT_SECRET) {
-        return res.sendStatus(500)
+    const passwordMatch = bcrypt.compareSync(password, user.password);
+
+    if (!passwordMatch) {
+      return res.sendStatus(401);
     }
-    
-    try {
-        const user = await prisma.user.findUnique({
-            where: {
-                username: username
-            }
-        })
 
-        if (!user) {   
-            return res.sendStatus(401)
-        }
+    const accessToken = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "15m" }
+    );
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "7d" }
+    );
 
-        const passwordMatch = bcrypt.compareSync(password, user.password)
-
-        if (!passwordMatch) {
-            return res.sendStatus(401)
-        }
-
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' })
-        res.json({ token })
-
-    } catch (err) {
-        res.sendStatus(503)
-    }
-}
+    res.cookie("jwt", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ accessToken });
+  } catch (err) {
+    res.sendStatus(503);
+  }
+};
 
 const register = async (req, res) => {
-    const { username, password } = req.body
+  const { username, password } = req.body;
 
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Username and password are required.' })
-    }
+  if (!username || !password) {
+    return res
+      .status(400)
+      .json({ error: "Username and password are required." });
+  }
 
-    if (!process.env.JWT_SECRET) {
-        return res.sendStatus(500)
-    }
+  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
+    return res.sendStatus(500);
+  }
 
-    try {
-        const hashedPassword = await bcrypt.hash(password, 10)
-        const user = await prisma.user.create({
-            data: {
-                username,
-                password: hashedPassword
-            }
-        })
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await prisma.user.create({
+      data: {
+        username,
+        password: hashedPassword,
+      },
+    });
 
-        // create a token
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '24h' })
-        res.json({ token})
+    // create a token
+    const accessToken = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "15m" }
+    );
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "7d" }
+    );
 
-    } catch (err) {
-        res.sendStatus(503)
-    }
-}
+    res.cookie("jwt", refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+    });
+    res.json({ accessToken });
+  } catch (err) {
+    res.sendStatus(503);
+  }
+};
 
 const refresh = (req, res) => {
-    const cookies = req.cookies
+  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
+    return res.sendStatus(500);
+  }
 
-    if (!cookies?.jwt) return res.status(401).json({ message: 'Unauthorized' })
+  const cookies = req.cookies;
 
-    const refreshToken = cookies.jwt
+  if (!cookies?.jwt) return res.status(401).json({ message: "Unauthorized" });
 
-    jwt.verify(
-        refreshToken,
-        process.env.REFRESH_TOKEN_SECRET,
-        async (err, decoded) => {
-            if (err) return res.status(403).json({ message: 'Forbidden' })
+  const refreshToken = cookies.jwt;
 
-            const foundUser = await prisma.user.findUnique({
-                where: {
-                    userId: decoded.userId
-                }
-            })
+  jwt.verify(
+    refreshToken,
+    process.env.REFRESH_TOKEN_SECRET,
+    async (err, decoded) => {
+      if (err) return res.status(403).json({ message: "Forbidden" });
 
-            if (!foundUser) return res.status(401).json({ message: 'Unauthorized' })
+      const foundUser = await prisma.user.findUnique({
+        where: {
+          id: decoded.id,
+        },
+      });
 
-            const accessToken = jwt.sign(
-                {
-                    "UserInfo": {
-                        "username": foundUser.username,
-                        "roles": foundUser.roles
-                    }
-                },
-                process.env.ACCESS_TOKEN_SECRET,
-                { expiresIn: '15m' }
-            )
+      if (!foundUser) return res.status(401).json({ message: "Unauthorized" });
 
-            res.json({ accessToken })
-        }
-    )
-}
+      const accessToken = jwt.sign(
+        { id: foundUser.id, username: foundUser.username },
+
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "15m" }
+      );
+
+      res.json({ accessToken });
+    }
+  );
+};
 
 const logout = (req, res) => {
-    const cookies = req.cookies
-    if (!cookies?.jwt) return res.sendStatus(204) //No content
-    res.clearCookie('jwt', { httpOnly: true, sameSite: 'None', secure: true })
-    res.json({ message: 'Cookie cleared' })
-}
+  const cookies = req.cookies;
+  if (!cookies?.jwt) return res.sendStatus(204); //No content
+  res.clearCookie("jwt", { httpOnly: true, sameSite: "None", secure: true });
+  res.json({ message: "Cookie cleared" });
+};
 
-export default { login, register, refresh, logout }
+export default { login, register, refresh, logout };

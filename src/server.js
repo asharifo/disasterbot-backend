@@ -3,7 +3,7 @@ import path, {dirname} from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/authRoutes.js'
 import ragbotRoutes from './routes/ragbotRoutes.js'
-import authMiddleware from './middleware/authMiddleware.js'
+import cookieParser from 'cookie-parser'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -14,6 +14,7 @@ const __dirname = dirname(__filename)
 
 // Middleware
 app.use(express.json())
+app.use(cookieParser())
 app.use(express.static(path.join(__dirname, '../public')))
 
 // Serve HTML file (change it so that frontend is in a seperate project)

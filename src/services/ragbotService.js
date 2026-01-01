@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { DataAPIClient } from '@datastax/astra-db-ts';
 import { OpenAIEmbeddings, ChatOpenAI } from '@langchain/openai';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
