@@ -1,44 +1,42 @@
-import express from 'express'
-import path, {dirname} from 'path'
-import { fileURLToPath } from 'url'
-import authRoutes from './routes/authRoutes.js'
-import ragbotRoutes from './routes/ragbotRoutes.js'
-import cookieParser from 'cookie-parser'
-import { limiter, authLimiter } from './middleware/rateLimiters.js'
-import cors from 'cors'
+import express from "express";
+import path, { dirname } from "path";
+import { fileURLToPath } from "url";
+import authRoutes from "./routes/authRoutes.js";
+import ragbotRoutes from "./routes/ragbotRoutes.js";
+import cookieParser from "cookie-parser";
+import { limiter, authLimiter } from "./middleware/rateLimiters.js";
+import cors from "cors";
 
-const app = express()
-const PORT = process.env.PORT || 3000
-  
-// __dirname setup 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors(corsOptions))
-app.use(express.json())
-app.use(cookieParser())
-app.use(express.static(path.join(__dirname, '../public')))
-app.use(limiter)
-app.use('/auth/login', authLimiter)
-app.use('/auth/register', authLimiter)
+// __dirname setup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const corsOptions = {
-    origin: ['https://your-frontend.example.com'],
-    credentials: true,
-  }
+  origin: ["https://your-frontend.example.com"],
+  credentials: true,
+}
+
+// Middleware
+app.use(cors(corsOptions));
+app.use(express.json());
+app.use(cookieParser());
+app.use(express.static(path.join(__dirname, "../public")));
+app.use(limiter);
+app.use("/auth/login", authLimiter);
+app.use("/auth/register", authLimiter);
 
 // Serve HTML file (change it so that frontend is in a seperate project)
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public', 'index.html'))
-})
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../public", "index.html"));
+});
 
 // Routes
-app.use('/auth', authRoutes)
-app.use('/ragbot', ragbotRoutes)
+app.use("/auth", authRoutes);
+app.use("/ragbot", ragbotRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`)
-})
-
-
+  console.log(`Server is running on port ${PORT}`);
+});
