@@ -34,12 +34,8 @@ app.use("/auth/register", authLimiter);
 app.use("/auth", authRoutes);
 app.use("/ragbot", ragbotRoutes);
 
-// Static files
+// Serve static files
 app.use(express.static(path.join(__dirname, "../public")));
-// Serve HTML file (change it so that frontend is in a seperate project)
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public", "index.html"));
-});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
