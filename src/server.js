@@ -8,7 +8,7 @@ import { limiter, authLimiter } from "./middleware/rateLimiters.js";
 import cors from "cors";
 import { connectDb, disconnectDb } from "./prismaClient.js"
 
-// !!! Add zod validation for routes
+// !!! Add zod validation for routes and error-handling middleware
 
 await connectDb()
 
@@ -30,6 +30,7 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
+
 // Rate limiting
 app.use(limiter);
 app.use("/auth/login", authLimiter);

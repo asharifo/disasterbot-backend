@@ -2,17 +2,25 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma } from "../prismaClient.js";
 
+const missingSecrets = () =>
+  !process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET;
+
 const login = async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ error: "Username and password are required." });
+    return res.status(400).json({
+      error: "ValidationError",
+      message: "Username and password are required",
+    });
   }
 
-  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
-    return res.sendStatus(500);
+  if (missingSecrets()) {
+    console.error("JWT secrets missing");
+    return res.status(500).json({
+      error: "ServerMisconfigured",
+      message: "Authentication service is not configured",
+    });
   }
 
   try {
@@ -23,13 +31,19 @@ const login = async (req, res) => {
     });
 
     if (!user) {
-      return res.sendStatus(401);
+      return res.status(401).json({
+        error: "InvalidCredentials",
+        message: "Username or password is incorrect",
+      });
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
-      return res.sendStatus(401);
+      return res.status(401).json({
+        error: "InvalidCredentials",
+        message: "Username or password is incorrect",
+      });
     }
 
     const accessToken = jwt.sign(
@@ -43,15 +57,21 @@ const login = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const isProduction = process.env.NODE_ENV === "production";
+
     res.cookie("jwt", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "None",
+      secure: isProduction,
+      sameSite: isProduction ? "None" : "Lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
     res.json({ accessToken });
   } catch (err) {
-    res.sendStatus(503);
+    console.error("Login failed:", err);
+    res.status(503).json({
+      error: "DatabaseError",
+      message: "Login service is temporarily unavailable",
+    });
   }
 };
 
@@ -59,13 +79,18 @@ const register = async (req, res) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    return res
-      .status(400)
-      .json({ error: "Username and password are required." });
+    return res.status(400).json({
+      error: "ValidationError",
+      message: "Username and password are required",
+    });
   }
 
-  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
-    return res.sendStatus(500);
+  if (missingSecrets()) {
+    console.error("JWT secrets missing");
+    return res.status(500).json({
+      error: "ServerMisconfigured",
+      message: "Authentication service is not configured",
+    });
   }
 
   try {
@@ -89,50 +114,87 @@ const register = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    const isProduction = process.env.NODE_ENV === "production";
     res.cookie("jwt", refreshToken, {
       httpOnly: true,
-      secure: true,
-      sameSite: "None",
+      secure: isProduction,
+      sameSite: isProduction ? "None" : "Lax",
       maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    res.json({ accessToken });
+
+    res.status(201).json({ accessToken });
   } catch (err) {
-    res.sendStatus(503);
+    console.error("Register failed:", err);
+
+    // If unique constraint on username fails
+    if (err.code === "P2002") {
+      return res.status(409).json({
+        error: "UserExists",
+        message: "Username is already taken",
+      });
+    }
+
+    res.status(503).json({
+      error: "DatabaseError",
+      message: "Registration service unavailable",
+    });
   }
 };
 
 const refresh = (req, res) => {
-  if (!process.env.ACCESS_TOKEN_SECRET || !process.env.REFRESH_TOKEN_SECRET) {
-    return res.sendStatus(500);
+  if (missingSecrets()) {
+    return res.status(500).json({
+      error: "ServerMisconfigured",
+      message: "Authentication service is not configured",
+    });
   }
-  const cookies = req.cookies;
+  const refreshToken = req.cookies?.jwt;
 
-  if (!cookies?.jwt) return res.status(401).json({ message: "Unauthorized" });
-
-  const refreshToken = cookies.jwt;
+  if (!refreshToken) {
+    return res.status(401).json({
+      error: "NoRefreshToken",
+      message: "Login required",
+    });
+  }
 
   jwt.verify(
     refreshToken,
     process.env.REFRESH_TOKEN_SECRET,
     async (err, decoded) => {
-      if (err) return res.status(403).json({ message: "Forbidden" });
+      if (err) {
+        return res.status(403).json({
+          error: "InvalidRefreshToken",
+          message: "Session expired — please log in again",
+        });
+      }
 
-      const foundUser = await prisma.user.findUnique({
-        where: {
-          id: decoded.id,
-        },
-      });
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: decoded.id },
+        });
 
-      if (!foundUser) return res.status(401).json({ message: "Unauthorized" });
+        if (!user) {
+          return res.status(401).json({
+            error: "UserNotFound",
+            message: "Account no longer exists",
+          });
+        }
 
-      const accessToken = jwt.sign(
-        { id: foundUser.id, username: foundUser.username },
+        const accessToken = jwt.sign(
+          { id: user.id, username: user.username },
+          process.env.ACCESS_TOKEN_SECRET,
+          { expiresIn: "15m" }
+        );
 
-        process.env.ACCESS_TOKEN_SECRET,
-        { expiresIn: "15m" }
-      );
+        res.json({ accessToken });
+      } catch (err) {
+        console.error("Refresh failed:", err);
 
-      res.json({ accessToken });
+        res.status(503).json({
+          error: "DatabaseError",
+          message: "Unable to refresh session",
+        });
+      }
     }
   );
 };
