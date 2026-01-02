@@ -1,4 +1,4 @@
-import prisma from '../prismaClient.js';
+import { prisma } from '../prismaClient.js';
 import { queryCountry } from '../services/ragbotService.js';
 
 // Get all queries for logged-in user

@@ -22,8 +22,8 @@ const llm = new ChatOpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-const client = new DataAPIClient(APPLICATION_TOKEN);
-const db = client.db(API_ENDPOINT, { namespace: KEYSPACE_NAME });
+const client = new DataAPIClient(process.env.ASTRA_DB_APPLICATION_TOKEN);
+const db = client.db(process.env.ASTRA_DB_API_ENDPOINT, { namespace: KEYSPACE_NAME });
 const collection = db.collection(COLLECTION_NAME);
 
 export async function queryCountry(question, country) {

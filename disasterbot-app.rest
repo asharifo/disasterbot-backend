@@ -1,22 +1,96 @@
-### GET /
-GET http://localhost:3000
+@baseUrl = http://localhost:3000
+@username = testuser-{{$timestamp}}
+@password = TestPassword123!
 
-### Register a new user /auth/register
-POST http://localhost:3000/auth/register
+### Root check
+GET {{baseUrl}}/
+
+### Register a new user
+# @name register
+POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
-  "username": "testuser",
-  "password": "TestPassword123"
+  "username": "{{username}}",
+  "password": "{{password}}"
 }
 
-### Login /auth/login
-POST http://localhost:3000/auth/login
+### Login with the registered user
+# @name login
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
-  "username": "testuser",
-  "password": "TestPassword123"
+  "username": "{{username}}",
+  "password": "{{password}}"
 }
 
+> {%
+  client.global.set("accessToken", response.body.accessToken);
+  const cookieHeader = response.headers["set-cookie"]; 
+  if (cookieHeader) {
+    client.global.set("refreshCookie", Array.isArray(cookieHeader) ? cookieHeader[0] : cookieHeader);
+  }
+%}
 
+### Refresh token without cookie (expect 401)
+GET {{baseUrl}}/auth/refresh
+
+### Refresh token with cookie
+GET {{baseUrl}}/auth/refresh
+Cookie: {{refreshCookie}}
+
+### Logout (clears refresh cookie)
+POST {{baseUrl}}/auth/logout
+Cookie: {{refreshCookie}}
+
+### Ragbot queries without auth (expect 401)
+GET {{baseUrl}}/ragbot
+
+### Ragbot create query without auth (expect 401)
+POST {{baseUrl}}/ragbot
+Content-Type: application/json
+
+{
+  "question": "What should I do before a hurricane?",
+  "country": "United States"
+}
+
+### Ragbot create query with missing fields (expect 400)
+POST {{baseUrl}}/ragbot
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "question": "",
+  "country": ""
+}
+
+### Ragbot create query
+# @name createQuery
+POST {{baseUrl}}/ragbot
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "question": "What should I do before a hurricane?",
+  "country": "United States"
+}
+
+### Ragbot create query (different country)
+POST {{baseUrl}}/ragbot
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "question": "How do I prepare for earthquakes?",
+  "country": "Japan"
+}
+
+### Ragbot list queries
+GET {{baseUrl}}/ragbot
+Authorization: Bearer {{accessToken}}
+
+### Ragbot list queries with invalid token (expect 401)
+GET {{baseUrl}}/ragbot
+Authorization: Bearer invalid.token.value

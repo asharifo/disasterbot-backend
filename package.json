@@ -16,21 +16,22 @@
     "@langchain/community": "^0.3.50",
     "@langchain/core": "^0.3.68",
     "@langchain/openai": "^0.6.7",
-    "dotenv": "^16.6.1",
-    "langchain": "^0.3.30",
-    "mammoth": "^1.10.0",
-    "pdf-parse": "^1.1.1",
-    "puppeteer": "^24.16.0",
-    "word-extractor": "^1.0.4",
-
-    "@prisma/client": "^7.2.0",
+    "@prisma/client": "^6.19.0",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "jsonwebtoken": "^9.0.3",
+    "langchain": "^0.3.30",
+    "mammoth": "^1.10.0",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
-    "prisma": "^7.2.0"
+    "puppeteer": "^24.16.0",
+    "word-extractor": "^1.0.4"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.0"
   }
 }
