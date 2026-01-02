@@ -1,10 +1,11 @@
 @baseUrl = http://localhost:3000
-@username = demo_user
-@password = demo_pass_123
-@country = TAJ
-@question = What are the most common natural disasters and key preparedness tips?
+@username = dummy_user
+@password = dummy_password
+@country = KAZ
+@question = What are some disaster measures implemented in my country?
 
 ### Register a new user
+# Registering again with same username returns 409 conflict and "UserExists" error
 # @name register
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
@@ -25,18 +26,16 @@ Content-Type: application/json
 }
 
 ### Refresh access token using the jwt cookie from login/register
-# If your REST client supports cookie jars, the jwt cookie from login/register
-# will be sent automatically. Otherwise, copy the Set-Cookie value manually.
+# The jwt cookie from login/register will be sent automatically
 # @name refresh
 GET {{baseUrl}}/auth/refresh
 
 ### Logout and clear the refresh cookie
-# If your REST client supports cookie jars, the jwt cookie from login/register
-# will be sent automatically. Otherwise, copy the Set-Cookie value manually.
+# The jwt cookie from login/register will be sent automatically
 # @name logout
 POST {{baseUrl}}/auth/logout
 
-### Create a new RAG query (requires Bearer access token)
+### Create a new RAG query with access token
 # @name createRagQuery
 POST {{baseUrl}}/ragbot
 Content-Type: application/json
@@ -47,7 +46,49 @@ Authorization: Bearer {{login.response.body.accessToken}}
   "country": "{{country}}"
 }
 
-### Get all RAG queries for the logged-in user
+# Example response
+<!-- {
+  "query": {
+    "id": "849501bd-9c9c-456e-aefc-519ce09f83b1",
+    "question": "What are some disaster measures implemented in my country?",
+    "answer": "In Kazakhstan, several disaster preparedness measures have been 
+    implemented to enhance resilience against natural disasters such as earthquakes, 
+    floods, and severe weather conditions. Here are some key measures:\n\n1. **National
+     Emergency Management System**: Kazakhstan has established a comprehensive national 
+     emergency management system that includes the Ministry of Emergency Situations (MES). 
+     This body is responsible for coordinating disaster response and preparedness efforts 
+     across the country.\n\n2. **Early Warning Systems**: The government has developed early
+      warning systems for various natural disasters, including seismic monitoring for 
+      earthquakes and flood forecasting. These systems aim to provide timely alerts to
+       communities at risk.\n\n3. **Public Awareness Campaigns**: There are ongoing
+        public education campaigns to raise awareness about disaster preparedness. 
+        These initiatives often include training sessions, distribution of informational 
+        materials, and community drills to ensure that citizens know how to respond 
+        in the event of a disaster.\n\n4. **Emergency Response Plans**: Local governments
+         are required to create and maintain emergency response plans tailored to their 
+         specific risks. These plans outline procedures for evacuation, sheltering, and 
+         resource allocation during disasters.\n\n5. **Infrastructure Resilience**: The 
+         government invests in strengthening infrastructure, such as dams, roads, and
+          buildings, to withstand natural disasters. This includes adhering to building 
+          codes that account for seismic activity in earthquake-prone areas.\n\n6. 
+          **Community Involvement**: Local communities are encouraged to participate 
+          in disaster preparedness activities. This includes forming volunteer groups
+           that can assist during emergencies and conducting local drills to practice 
+           response strategies.\n\n7. **International Cooperation**: Kazakhstan
+            collaborates with international organizations and neighboring countries
+             to enhance its disaster response capabilities. This includes sharing 
+             best practices, participating in joint exercises, and accessing technical 
+             assistance.\n\n8. **Research and Development**: The government supports 
+             research initiatives aimed at understanding natural hazards and improving
+              disaster risk management strategies. This includes studying climate change
+               impacts and developing mitigation measures.\n\nBy implementing these measures, 
+               Kazakhstan aims to reduce the risks associated with natural disasters and 
+               enhance the safety and resilience of its population.",
+    "userId": "5d08a6ce-8f72-4898-8839-fca788cd6272"
+  }
+} -->
+
+### Get all RAG queries for the logged-in user with access token
 # @name getRagQueries
 GET {{baseUrl}}/ragbot
 Authorization: Bearer {{login.response.body.accessToken}}
