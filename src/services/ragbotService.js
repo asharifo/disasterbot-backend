@@ -6,30 +6,40 @@ const {
   OPENAI_API_KEY,
   KEYSPACE_NAME,
   COLLECTION_NAME,
+  ASTRA_DB_APPLICATION_TOKEN,
+  ASTRA_DB_API_ENDPOINT,
 } = process.env;
 
+// OpenAI embeddings
 const embeddings = new OpenAIEmbeddings({
   model: "text-embedding-3-small",
   openAIApiKey: OPENAI_API_KEY,
   batchSize: 128,
 });
 
+// OpenAI LLM
 const llm = new ChatOpenAI({
   model: "gpt-4o-mini",
   temperature: 0.2,
   apiKey: OPENAI_API_KEY,
 });
 
-const client = new DataAPIClient(process.env.ASTRA_DB_APPLICATION_TOKEN);
-const db = client.db(process.env.ASTRA_DB_API_ENDPOINT, {
+// Astra DB setup
+const client = new DataAPIClient(ASTRA_DB_APPLICATION_TOKEN);
+const db = client.db(ASTRA_DB_API_ENDPOINT, {
   namespace: KEYSPACE_NAME,
 });
 const collection = db.collection(COLLECTION_NAME);
 
 export async function queryCountry(question, country) {
+
+  let qvec;
+  let results;
+  let res;
+
   // Open AI embeddings call
   try {
-    const qvec = await embeddings.embedQuery(question);
+    qvec = await embeddings.embedQuery(question);
   } catch (err) {
     console.error("Embedding failed:", err);
     throw new Error("EMBEDDING_FAILED");
@@ -39,12 +49,13 @@ export async function queryCountry(question, country) {
   try {
     const filter = { "metadata.region": { $eq: country } };
     const cursor = collection.find(filter, {
-      sort: { $vector: qvec },
+      sort: { "$vector": qvec },
       limit: 4,
       includeSimilarity: true,
     });
 
-    const results = await cursor.toArray();
+    results = await cursor.toArray();
+
   } catch (err) {
     console.error("Vector search failed:", err);
     throw new Error("VECTOR_SEARCH_FAILED");
@@ -68,14 +79,13 @@ export async function queryCountry(question, country) {
       new HumanMessage(`Context:\n${context}\n\nQuestion:\n${question}`),
     ];
 
-    const res = await llm.invoke(messages);
+    res = await llm.invoke(messages);
   } catch (err) {
     console.error("LLM failed:", err);
     throw new Error("LLM_FAILED");
   }
 
   // Parse output
-
   try {
     return Array.isArray(res.content)
       ? res.content.map((p) => p?.text ?? "").join("")

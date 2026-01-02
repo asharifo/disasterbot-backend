@@ -1,0 +1,53 @@
+@baseUrl = http://localhost:3000
+@username = demo_user
+@password = demo_pass_123
+@country = TAJ
+@question = What are the most common natural disasters and key preparedness tips?
+
+### Register a new user
+# @name register
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+### Login with existing user credentials
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "{{username}}",
+  "password": "{{password}}"
+}
+
+### Refresh access token using the jwt cookie from login/register
+# If your REST client supports cookie jars, the jwt cookie from login/register
+# will be sent automatically. Otherwise, copy the Set-Cookie value manually.
+# @name refresh
+GET {{baseUrl}}/auth/refresh
+
+### Logout and clear the refresh cookie
+# If your REST client supports cookie jars, the jwt cookie from login/register
+# will be sent automatically. Otherwise, copy the Set-Cookie value manually.
+# @name logout
+POST {{baseUrl}}/auth/logout
+
+### Create a new RAG query (requires Bearer access token)
+# @name createRagQuery
+POST {{baseUrl}}/ragbot
+Content-Type: application/json
+Authorization: Bearer {{login.response.body.accessToken}}
+
+{
+  "question": "{{question}}",
+  "country": "{{country}}"
+}
+
+### Get all RAG queries for the logged-in user
+# @name getRagQueries
+GET {{baseUrl}}/ragbot
+Authorization: Bearer {{login.response.body.accessToken}}
