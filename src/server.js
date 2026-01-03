@@ -6,11 +6,11 @@ import ragbotRoutes from "./routes/ragbotRoutes.js";
 import cookieParser from "cookie-parser";
 import { limiter, authLimiter } from "./middleware/rateLimiters.js";
 import cors from "cors";
-import { connectDb, disconnectDb } from "./prismaClient.js"
+import { connectDb, disconnectDb } from "./prismaClient.js";
 
 // !!! Add zod validation for routes and error-handling middleware
 
-await connectDb()
+await connectDb();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -19,11 +19,17 @@ const PORT = process.env.PORT || 3000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// CORS setup
+// CORS setup for development
 const corsOptions = {
-  origin: ["http://localhost:5173"],
+  origin: function (origin, callback) {
+    if (!origin || origin.startsWith("http://localhost:")) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
-}
+};
 
 // Middleware
 // Security
@@ -49,25 +55,25 @@ const server = app.listen(PORT, () => {
 
 // Handle unhandled promise rejections (e.g., database connection errors)
 process.on("unhandledRejection", (err) => {
-    console.error("Unhandled Rejection:", err);
-    server.close(async () => {
-      await disconnectDb();
-      process.exit(1);
-    });
-  });
-  
-  // Handle uncaught exceptions
-  process.on("uncaughtException", async (err) => {
-    console.error("Uncaught Exception:", err);
+  console.error("Unhandled Rejection:", err);
+  server.close(async () => {
     await disconnectDb();
     process.exit(1);
   });
-  
-  // Graceful shutdown
-  process.on("SIGTERM", async () => {
-    console.log("SIGTERM received, shutting down gracefully");
-    server.close(async () => {
-      await disconnectDb();
-      process.exit(0);
-    });
+});
+
+// Handle uncaught exceptions
+process.on("uncaughtException", async (err) => {
+  console.error("Uncaught Exception:", err);
+  await disconnectDb();
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, shutting down gracefully");
+  server.close(async () => {
+    await disconnectDb();
+    process.exit(0);
   });
+});

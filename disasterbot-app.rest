@@ -46,7 +46,7 @@ Authorization: Bearer {{login.response.body.accessToken}}
   "country": "{{country}}"
 }
 
-# Example response
+# Example JSON response
 <!-- {
   "query": {
     "id": "849501bd-9c9c-456e-aefc-519ce09f83b1",

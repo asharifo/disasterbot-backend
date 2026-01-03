@@ -22,13 +22,13 @@ A Node.js/Express backend that powers DisasterBot, a natural‑disaster prepared
 
 ```
 src/
-  controllers/      # Request handlers (auth + ragbot)
-  middleware/       # Auth + rate limiters
-  routes/           # Express routes
-  services/         # RAG pipeline and external integrations
-  prismaClient.js   # Prisma connection helpers
-  server.js         # App bootstrap
-prisma/             # Prisma schema + migrations
+  controllers/          # Request handlers (auth + ragbot)
+  middleware/           # Auth + rate limiters
+  routes/               # Express routes
+  services/             # RAG pipeline and external integrations
+  prismaClient.js       # Prisma connection helpers
+  server.js             # App bootstrap
+prisma/                 # Prisma schema + migrations
 ```
 
 ## Getting Started
