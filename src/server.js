@@ -20,9 +20,15 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 // CORS setup for development
+const allowedOrigins = ["https://disasterbot.onrender.com"];
+
 const corsOptions = {
   origin: function (origin, callback) {
-    if (!origin || origin.startsWith("http://localhost:")) {
+    if (
+      !origin ||
+      origin.startsWith("http://localhost:") ||
+      allowedOrigins.includes(origin)
+    ) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
