@@ -31,11 +31,9 @@ const db = client.db(ASTRA_DB_API_ENDPOINT, {
 });
 const collection = db.collection(COLLECTION_NAME);
 
-export async function queryCountry(question, country) {
-
+const buildContext = async (question, country) => {
   let qvec;
   let results;
-  let res;
 
   // Open AI embeddings call
   try {
@@ -49,19 +47,18 @@ export async function queryCountry(question, country) {
   try {
     const filter = { "metadata.region": { $eq: country } };
     const cursor = collection.find(filter, {
-      sort: { "$vector": qvec },
+      sort: { $vector: qvec },
       limit: 4,
       includeSimilarity: true,
     });
 
     results = await cursor.toArray();
-
   } catch (err) {
     console.error("Vector search failed:", err);
     throw new Error("VECTOR_SEARCH_FAILED");
   }
 
-  const context = results.length
+  return results.length
     ? results
         .map((r, i) => {
           const content = r.text.toString().trim();
@@ -69,29 +66,55 @@ export async function queryCountry(question, country) {
         })
         .join("\n\n")
     : "(none)";
+};
 
-  // Open AI LLM call
+const normalizeContent = (content) =>
+  Array.isArray(content)
+    ? content.map((part) => part?.text ?? "").join("")
+    : content ?? "";
+
+const buildMessages = (question, country, context) => [
+  new SystemMessage(
+    `You are an expert on natural disaster preparedness for ${country}. Use the context in your answer.`
+  ),
+  new HumanMessage(`Context:\n${context}\n\nQuestion:\n${question}`),
+];
+
+
+// Non-streaming RAG query
+export async function queryCountry(question, country) {
+  let res;
+
+  const context = await buildContext(question, country);
+
   try {
-    const messages = [
-      new SystemMessage(
-        `You are an expert on natural disaster preparedness for ${country}. Use the context in your answer.`
-      ),
-      new HumanMessage(`Context:\n${context}\n\nQuestion:\n${question}`),
-    ];
-
+    const messages = buildMessages(question, country, context);
     res = await llm.invoke(messages);
   } catch (err) {
     console.error("LLM failed:", err);
     throw new Error("LLM_FAILED");
   }
 
-  // Parse output
   try {
-    return Array.isArray(res.content)
-      ? res.content.map((p) => p?.text ?? "").join("")
-      : res.content ?? "";
+    return normalizeContent(res.content);
   } catch (err) {
     console.error("LLM output parse failed:", err);
     throw new Error("LLM_OUTPUT_INVALID");
   }
 }
+
+// Streaming RAG query
+export async function streamCountryAnswer(question, country) {
+  const context = await buildContext(question, country);
+  const messages = buildMessages(question, country, context);
+
+  try {
+    return llm.stream(messages);
+  } catch (err) {
+    console.error("LLM stream failed:", err);
+    throw new Error("LLM_FAILED");
+  }
+}
+
+// Stream chunk parser for frontend
+export const parseStreamChunk = (chunk) => normalizeContent(chunk?.content);
