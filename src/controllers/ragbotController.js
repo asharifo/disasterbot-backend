@@ -1,14 +1,14 @@
 import { prisma } from "../prismaClient.js";
 import {
-    queryCountry,
-    streamCountryAnswer,
-    parseStreamChunk,
-  } from "../services/ragbotService.js";
+  queryCountry,
+  streamCountryAnswer,
+  parseStreamChunk,
+} from "../services/ragbotService.js";
 
 // Get all queries for logged-in user
 const getAllQueries = async (req, res) => {
   if (!req.userId) {
-    return res.sendStatus(401).json({
+    return res.status(401).json({
       error: "Unauthorized",
       message: "You must be logged in to view your queries",
     });
@@ -22,7 +22,7 @@ const getAllQueries = async (req, res) => {
     res.json({ queries });
   } catch (err) {
     console.error("getAllQueries failed:", err);
-    res.sendStatus(503).json({
+    res.status(503).json({
       error: "DatabaseError",
       message: "Unable to fetch queries",
     });
@@ -33,7 +33,7 @@ const getAllQueries = async (req, res) => {
 const createQuery = async (req, res) => {
   const { question, country } = req.body;
   if (!req.userId) {
-    return res.sendStatus(401).json({
+    return res.status(401).json({
       error: "Unauthorized",
       message: "You must be logged in to submit a query",
     });
@@ -109,109 +109,113 @@ const createQuery = async (req, res) => {
 };
 
 const streamQuery = async (req, res) => {
-    const { question, country } = req.body;
-    if (!req.userId) {
-      return res.sendStatus(401).json({
-        error: "Unauthorized",
-        message: "You must be logged in to submit a query",
-      });
-    }
-    if (!question || !country) {
-      return res.status(400).json({
-        error: "ValidationError",
-        message: "Both question and country are required",
-      });
-    }
-  
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache");
-    res.setHeader("Connection", "keep-alive");
-    res.flushHeaders?.();
-  
-    let cancelled = false;
-    req.on("close", () => {
-      cancelled = true;
+  const { question, country } = req.body;
+  if (!req.userId) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "You must be logged in to submit a query",
     });
-  
-    let answer = "";
-    try {
-      const stream = await streamCountryAnswer(question, country);
-  
-      for await (const chunk of stream) {
-        if (cancelled) {
-          break;
-        }
-        const token = parseStreamChunk(chunk);
-        if (!token) {
-          continue;
-        }
-        answer += token;
-        res.write(`event: token\ndata: ${JSON.stringify({ token })}\n\n`);
+  }
+  if (!question || !country) {
+    return res.status(400).json({
+      error: "ValidationError",
+      message: "Both question and country are required",
+    });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.setHeader("Content-Encoding", "none");
+  res.flushHeaders?.();
+
+  let cancelled = false;
+  req.on("close", () => {
+    cancelled = true;
+  });
+
+  let answer = "";
+  try {
+    const stream = await streamCountryAnswer(question, country);
+
+    for await (const chunk of stream) {
+      if (cancelled) {
+        break;
       }
-    } catch (err) {
-      console.error("RAG stream failed:", err);
-  
-      let response = {
-        error: "UnknownRAGError",
-        message: "An unexpected error occurred while generating your answer",
-      };
-  
-      switch (err.message) {
-        case "EMBEDDING_FAILED":
-          response = {
-            error: "EmbeddingServiceDown",
-            message: "Failed to generate embeddings for your question",
-          };
-          break;
-        case "VECTOR_SEARCH_FAILED":
-          response = {
-            error: "KnowledgeBaseUnavailable",
-            message: "The disaster knowledge base is currently unavailable",
-          };
-          break;
-        case "LLM_FAILED":
-          response = {
-            error: "AIServiceDown",
-            message: "The AI service failed to generate an answer",
-          };
-          break;
-        default:
-          break;
+      const token = parseStreamChunk(chunk);
+      if (!token) {
+        continue;
       }
-  
-      res.write(`event: error\ndata: ${JSON.stringify(response)}\n\n`);
-      return res.end();
+      answer += token;
+      res.write(`event: token\ndata: ${JSON.stringify({ token })}\n\n`);
+      res.flush?.();
     }
-  
-    if (cancelled) {
-      return res.end();
+  } catch (err) {
+    console.error("RAG stream failed:", err);
+
+    let response = {
+      error: "UnknownRAGError",
+      message: "An unexpected error occurred while generating your answer",
+    };
+
+    switch (err.message) {
+      case "EMBEDDING_FAILED":
+        response = {
+          error: "EmbeddingServiceDown",
+          message: "Failed to generate embeddings for your question",
+        };
+        break;
+      case "VECTOR_SEARCH_FAILED":
+        response = {
+          error: "KnowledgeBaseUnavailable",
+          message: "The disaster knowledge base is currently unavailable",
+        };
+        break;
+      case "LLM_FAILED":
+        response = {
+          error: "AIServiceDown",
+          message: "The AI service failed to generate an answer",
+        };
+        break;
+      default:
+        break;
     }
-  
-    try {
-      await prisma.query.create({
-        data: {
-          question,
-          answer,
-          userId: req.userId,
-        },
-      });
-  
-      res.write(
-        `event: done\ndata: ${JSON.stringify({ saved: true })}\n\n`
-      );
-    } catch (err) {
-      console.error("DB write failed:", err);
-      res.write(
-        `event: done\ndata: ${JSON.stringify({
-          saved: false,
-          error: "DatabaseError",
-          message: "Your answer was generated but could not be saved",
-          answer,
-        })}\n\n`
-      );
-    }
-  
+
+    res.write(`event: error\ndata: ${JSON.stringify(response)}\n\n`);
+    res.flush?.();
     return res.end();
-  };
-  
-  export default { getAllQueries, createQuery, streamQuery };
+  }
+
+  if (cancelled) {
+    return res.end();
+  }
+
+  try {
+    await prisma.query.create({
+      data: {
+        question,
+        answer,
+        userId: req.userId,
+      },
+    });
+
+    res.write(`event: done\ndata: ${JSON.stringify({ saved: true })}\n\n`);
+    res.flush?.();
+  } catch (err) {
+    console.error("DB write failed:", err);
+    res.write(
+      `event: done\ndata: ${JSON.stringify({
+        saved: false,
+        error: "DatabaseError",
+        message: "Your answer was generated but could not be saved",
+        answer,
+      })}\n\n`
+    );
+    res.flush?.();
+  }
+
+  return res.end();
+};
+
+export default { getAllQueries, createQuery, streamQuery };
