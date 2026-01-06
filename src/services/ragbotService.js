@@ -116,5 +116,5 @@ export async function streamCountryAnswer(question, country) {
   }
 }
 
-// Stream chunk parser for frontend
+// Stream chunk parser 
 export const parseStreamChunk = (chunk) => normalizeContent(chunk?.content);
